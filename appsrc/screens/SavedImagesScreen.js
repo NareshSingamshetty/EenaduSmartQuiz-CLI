@@ -11,61 +11,88 @@ import {
   Platform,
   ToastAndroid,
   Alert,
+  Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RNFS from "react-native-fs";
-import Share from "react-native-share";
 
-const SavedImagesScreen = () => {
+const { width } = Dimensions.get("window");
+
+const SavedImagesScreen = ({ navigation }) => {
   const [images, setImages] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(null); // ✅ for preview modal
+  const [selectedImage, setSelectedImage] = useState(null);
 
-const loadImages = async () => {
-  try {
-    const saved = await AsyncStorage.getItem("savedImages");
-    if (saved) {
-      const parsed = JSON.parse(saved);
+  // ✅ Load images from AsyncStorage
+  const loadImages = async () => {
+    try {
+      const saved = await AsyncStorage.getItem("photoKeys");
+      if (saved) {
+        const keys = JSON.parse(saved);
+        const allImages = [];
 
-      // Ensure proper file:// prefix
-      const fixed = parsed.map((uri) =>
-        uri.startsWith("file://") ? uri : "file://" + uri
-      );
+        // Load base64 images
+        for (let key of keys) {
+          const base64Data = await AsyncStorage.getItem(key);
+          if (base64Data) {
+            allImages.push(`data:image/png;base64,${base64Data}`);
+          }
+        }
 
-      setImages(fixed);
-    } else {
-      setImages([]);
+        setImages(allImages);
+      } else {
+        setImages([]);
+      }
+    } catch (e) {
+      console.error("Failed to load images:", e);
     }
-  } catch (e) {
-    console.error("Failed to load images:", e);
-  }
-};
+  };
 
-
+  // ✅ Clear all saved images
   const clearImages = async () => {
-    await AsyncStorage.removeItem("savedImages");
-    setImages([]);
+    try {
+      const saved = await AsyncStorage.getItem("photoKeys");
+      if (saved) {
+        const keys = JSON.parse(saved);
+        for (let key of keys) {
+          await AsyncStorage.removeItem(key);
+        }
+        await AsyncStorage.removeItem("photoKeys");
+      }
+
+      setImages([]);
+
+      if (Platform.OS === "android") {
+        ToastAndroid.show("All images cleared", ToastAndroid.SHORT);
+      } else {
+        Alert.alert("Cleared", "All saved images removed");
+      }
+    } catch (e) {
+      console.error("Error clearing images:", e);
+    }
   };
 
   useEffect(() => {
     loadImages();
   }, []);
 
+  // ✅ Download image to gallery
   const handleDownload = async () => {
     if (!selectedImage) return;
 
     try {
+      const base64Data = selectedImage.replace(/^data:image\/png;base64,/, "");
       const filename = `scan_${Date.now()}.png`;
       const destPath =
         Platform.OS === "android"
           ? `${RNFS.PicturesDirectoryPath}/${filename}`
           : `${RNFS.LibraryDirectoryPath}/${filename}`;
 
-      await RNFS.copyFile(selectedImage, destPath);
+      await RNFS.writeFile(destPath, base64Data, "base64");
 
       if (Platform.OS === "android") {
         ToastAndroid.show("Saved to gallery", ToastAndroid.SHORT);
       } else {
-        Alert.alert("Success", "Saved to Photos!");
+        Alert.alert("Saved", "Image saved successfully");
       }
     } catch (error) {
       console.error("Download error:", error);
@@ -73,42 +100,7 @@ const loadImages = async () => {
     }
   };
 
-const handleShare = async () => {
-  if (!selectedImage) return;
-  try {
-    // Create a temp filename
-    const filename = `share_${Date.now()}.png`;
-    const destPath = `${RNFS.CachesDirectoryPath}/${filename}`;
-
-    // Copy the image to cache
-    await RNFS.copyFile(
-      selectedImage.replace("file://", ""), // remove file:// if exists
-      destPath
-    );
-
-    let filePath = destPath;
-    if (!filePath.startsWith("file://")) {
-      filePath = "file://" + filePath;
-    }
-
-    // Open share dialog
-    await Share.open({
-      title: "Share Image",
-      url: filePath,
-      type: "image/png", // you can remove this if images might be jpg
-      failOnCancel: false,
-    });
-  } catch (error) {
-    console.error("Share error:", error);
-    if (Platform.OS === "android") {
-      ToastAndroid.show("Unable to share image", ToastAndroid.SHORT);
-    } else {
-      Alert.alert("Error", "Unable to share image");
-    }
-  }
-};
-
-
+  // ✅ Render image item
   const renderItem = ({ item }) => (
     <TouchableOpacity onPress={() => setSelectedImage(item)}>
       <View style={styles.imageWrapper}>
@@ -118,14 +110,26 @@ const handleShare = async () => {
   );
 
   return (
-    
     <View style={styles.container}>
+      {/* ✅ Header with Back & Title */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => (navigation ? navigation.goBack() : Alert.alert("Back pressed"))}
+        >
+          <Text style={styles.backText}>❮ Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Saved Images</Text>
+        <View style={{ width: 60 }} /> 
+      </View>
+
       {images.length > 0 ? (
         <>
           <FlatList
             data={images}
             keyExtractor={(item, index) => index.toString()}
             renderItem={renderItem}
+            numColumns={2}
+            columnWrapperStyle={styles.row}
             contentContainerStyle={styles.list}
           />
 
@@ -137,9 +141,7 @@ const handleShare = async () => {
         <Text style={styles.noImagesText}>No saved images</Text>
       )}
 
-      
-      {/* ✅ Full-Screen Preview Modal */}
-
+      {/* ✅ Full Screen Preview Modal */}
       <Modal visible={!!selectedImage} transparent={true}>
         <View style={styles.modalContainer}>
           <Pressable
@@ -152,13 +154,9 @@ const handleShare = async () => {
             resizeMode="contain"
           />
 
-          {/* ✅ Action buttons */}
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.actionBtn} onPress={handleDownload}>
               <Text style={styles.actionText}>Download</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
-              <Text style={styles.actionText}>Share</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: "red" }]}
@@ -177,20 +175,46 @@ export default SavedImagesScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  list: { padding: 12 },
+
+  // ✅ Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    // backgroundColor: "#2563eb",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+  },
+  backText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  headerTitle: {
+    color: "#000",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  list: { padding: 8 },
+  row: { justifyContent: "space-between" },
   imageWrapper: {
-    marginBottom: 12,
+    marginBottom: 10,
     borderRadius: 8,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#ddd",
+    width: width / 2 - 16,
+    height: 200,
   },
-  image: { width: "100%", height: 250 },
+  image: { width: "100%", height: "100%" },
   noImagesText: {
     color: "gray",
     fontSize: 16,
     textAlign: "center",
-    marginTop: 40,
+    marginTop: 50,
   },
   clearBtn: {
     backgroundColor: "#F05E41",
@@ -204,7 +228,7 @@ const styles = StyleSheet.create({
   // ✅ Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.9)",
+    backgroundColor: "rgba(0,0,0,0.95)",
     justifyContent: "center",
     alignItems: "center",
   },

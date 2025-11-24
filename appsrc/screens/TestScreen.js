@@ -9,6 +9,7 @@ import {
   ToastAndroid,
   Alert,
 } from "react-native";
+
 import ImagePicker from "react-native-image-crop-picker";
 import RNFS from "react-native-fs";
 import Share from "react-native-share";
@@ -40,7 +41,7 @@ export default function TestScreen() {
         //   compressImageQuality: 1,
         //   compressImageFormat: "png",
         // });
-
+        
         // if (cropped?.path) setImageUri(cropped.path);
 
         // ✅ Directly use captured image path
@@ -138,15 +139,49 @@ export default function TestScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", backgroundColor: "#000" },
-  waitingText: { color: "white", textAlign: "center", fontSize: 16 },
-  preview: { flex: 1, justifyContent: "center", alignItems: "center" },
-  label: { color: "white", marginBottom: 10 },
-  image: { width: "90%", height: "70%", borderRadius: 8 },
-  actions: { flexDirection: "row", marginTop: 16 },
-  btn: { padding: 12, borderRadius: 8, marginHorizontal: 8 },
-  retake: { backgroundColor: "gray" },
-  shareBtn: { backgroundColor: "#2563eb" },
-  useBtn: { backgroundColor: "#2563eb" },
-  btnText: { color: "white", fontWeight: "600" },
+  container: {
+     flex: 1,
+      justifyContent: "center",
+       backgroundColor: "#000" 
+      },
+  waitingText: {
+     color: "white",
+     textAlign: "center",
+      fontSize: 16 
+    },
+  preview: {
+     flex: 1,
+      justifyContent: "center", 
+      alignItems: "center"
+     },
+  label: {
+     color: "white",
+      marginBottom: 10
+     },
+  image: { 
+    width: "90%",
+     height: "70%",
+      borderRadius: 8
+     },
+  actions: {
+     flexDirection: "row", 
+     marginTop: 16
+     },
+  btn: {
+     padding: 12,
+      borderRadius: 8,
+       marginHorizontal: 8 
+      },
+  retake: { 
+    backgroundColor: "gray"
+   },
+  shareBtn: {
+     backgroundColor: "#2563eb"
+     },
+  useBtn: {
+     backgroundColor: "#2563eb"
+     },
+  btnText: { 
+    color: "white", 
+    fontWeight: "600" },
 });

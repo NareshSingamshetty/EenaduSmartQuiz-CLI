@@ -39,6 +39,13 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.buttonText}>VisionCamera</Text>
         </TouchableOpacity>
 
+         <TouchableOpacity
+          style={styles.openCameraButton}
+          onPress={() => navigation.navigate('CameraScreen')}
+        >
+          <Text style={styles.buttonText}>Document Cam</Text>
+        </TouchableOpacity>
+
 
 
       </View>
