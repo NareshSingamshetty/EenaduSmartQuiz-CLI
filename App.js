@@ -16,12 +16,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 // Import your screens
 import CameraScreen from './appsrc/screens/CameraScreen';
-import HomeScreen from './appsrc/screens/HomeScreen';
 import VisionCamera from './appsrc/screens/VisionCamera';
-import TestScreen from './appsrc/screens/TestScreen';
-import SavedImagesScreen from './appsrc/screens/SavedImagesScreen';
-import TestCamera from './appsrc/screens/TestCamera';
-import InitialScreen from './appsrc/screens/InitialScreen';
 import Dashboard from './appsrc/screens/Dashboard';
 import LandingScreen from './appsrc/screens/LandingScreen';
 import Leaderboard from './appsrc/screens/Leaderboard';
@@ -78,18 +73,13 @@ export default function App() {
             <View style={styles.content}>
               <Stack.Navigator screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="SplashScreen" component={SplashScreen} />
-                <Stack.Screen name="Initial" component={InitialScreen} />
                 <Stack.Screen name="Winners" component={Winners} />
                 <Stack.Screen name="Myquizs" component={Myquizs} />
                 <Stack.Screen name="Leaderboard" component={Leaderboard} />
-                <Stack.Screen name="Home" component={HomeScreen} />
                 <Stack.Screen name="LandingScreen" component={LandingScreen} />
                 <Stack.Screen name="CameraScreen" component={CameraScreen} />
                 <Stack.Screen name="VisionCamera" component={VisionCamera} />
-                <Stack.Screen name="TestScreen" component={TestScreen} />
-                <Stack.Screen name="TestCamera" component={TestCamera} />
                 <Stack.Screen name="Dashboard" component={Dashboard} />
-                <Stack.Screen name="SavedImagesScreen" component={SavedImagesScreen} />
               </Stack.Navigator>
             </View>
 
@@ -110,7 +100,8 @@ export default function App() {
                     { color: theme.colors.primary },
                   ]}
                 >
-                  {' '}Margadarsi Computers
+                  
+                Margadarsi Computers
                 </Text>
               </Text>
             </View>
