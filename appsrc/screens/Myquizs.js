@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,8 @@ import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import DeviceInfo from "react-native-device-info";
 import { useNavigation } from "@react-navigation/native";
 
-// YOUR PROXY — CHANGE TO YOUR PC IP FOR REAL DEVICE (e.g. 192.168.1.105)
+
+// This proxy script must now be configured with the AWS SDK to access S3.
 const IMAGE_PROXY_URL = "http://10.0.3.153/Crons/uploadview.php";
 
 const EENADU_LOGO = require("../assets/images/eenadu.png");
@@ -31,13 +32,16 @@ export default function MyQuizScreen() {
 
   const isDark = useColorScheme() === "dark";
   const navigation = useNavigation();
-  const fabAnim = new Animated.Value(0);
+  const fabAnim = useMemo(() => new Animated.Value(0), []);
 
-  // CORRECT FIELD: "image" from your API
+  // ✅ SIMPLIFIED getImageUrl: Returns a string URI for the Image component.
+  // The User-Agent is not included here as the PHP script handles S3 auth.
   const getImageUrl = useCallback((record) => {
     const url = record.image || "";
     if (!url || url.trim() === "") return null;
-    return `${IMAGE_PROXY_URL}?imgurl=${url}`;
+    
+    // Returns a simple string URI to the PHP proxy with URL encoding
+    return `${IMAGE_PROXY_URL}?imgurl=${encodeURIComponent(url)}`;
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -64,8 +68,7 @@ export default function MyQuizScreen() {
           console.log("Status   :", item.status || "Pending");
           console.log("S3 URL   :", item.image || "No image");
           console.log("PROXY URL:", imgUrl || "No image");
-          if (imgUrl) console.log("TEST →", imgUrl);
-          console.log("------------------------\n");
+          
         });
       } else {
         setRecords([]);
@@ -98,31 +101,42 @@ export default function MyQuizScreen() {
     setIsFabOpen(!isFabOpen);
   };
 
+  const cardBackgroundColor = isDark ? "#1a1a1a" : "#fff";
+  const textColor = isDark ? "#e5e5e5" : "#222";
+  const secondaryTextColor = isDark ? "#bbb" : "#555";
+  const accentColor = isDark ? "#60a5fa" : "#007AFF";
+  const headerBackground = isDark ? "#0a0a0a" : "#f8f9fa";
+  const tableHeaderBackground = isDark ? "#1f2937" : "#00adf2";
+  const fabMainColor = "#3b82f6";
+  const statusColor = "#00adf2"; 
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? "#0a0a0a" : "#f8f9fa" }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: headerBackground }]}>
       {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+   <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop:20, padding:5}}>
           <FontAwesome6 name="chevron-left" size={24} color={isDark ? "#60a5fa" : "#007AFF"} />
         </TouchableOpacity>
+
         <View style={styles.logoBox}>
-          <Image source={EENADU_LOGO} style={styles.logo} resizeMode="contain" />
+          <Image source={EENADU_LOGO} style={{height:50, width:50}} resizeMode="contain" />
           <Text style={[styles.logoText, { color: isDark ? "#e5e7eb" : "#111" }]}>Smart Quiz</Text>
         </View>
-        <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={[styles.title, { color: isDark ? "#60a5fa" : "#007AFF" }]}>My Quizs</Text>
+        
+       <View style = {{ flex: 1, alignItems: "center", marginTop:20 }}>
+        <Text style={[styles.title, { color: isDark ? "#60a5fa" : "#007AFF" }]}>My Quizs</Text>
         </View>
         <View style={{ width: 60 }} />
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#00adf2" />
+          <ActivityIndicator size="large" color={statusColor} />
           <Text style={{ color: isDark ? "#aaa" : "#555", marginTop: 12 }}>Loading...</Text>
         </View>
       ) : (
         <>
-          <View style={[styles.tableHeader, { backgroundColor: isDark ? "#1f2937" : "#00adf2" }]}>
+          <View style={[styles.tableHeader, { backgroundColor: tableHeaderBackground }]}>
             <Text style={styles.th}>ID</Text>
             <Text style={[styles.th, { flex: 1.5 }]}>DATE</Text>
             <Text style={styles.th}>STATUS</Text>
@@ -131,32 +145,34 @@ export default function MyQuizScreen() {
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {records.length === 0 ? (
-              <Text style={[styles.noData, { color: isDark ? "#888" : "#666" }]}>
+              <Text style={[styles.noData, { color: secondaryTextColor }]}>
                 No quiz records found
               </Text>
             ) : (
               records.map((item, i) => {
                 const imgUrl = getImageUrl(item);
+                const status = item.status || "Pending";
 
                 return (
                   <TouchableOpacity key={i} onPress={() => openModal(item)} activeOpacity={0.8}>
-                    <View style={[styles.card, { backgroundColor: isDark ? "#1a1a1a" : "#fff" }]}>
+                    <View style={[styles.card, { backgroundColor: cardBackgroundColor }]}>
                       <View style={styles.row}>
-                        <Text style={[styles.idText, { color: isDark ? "#e5e5e5" : "#222" }]}>{item.unique}</Text>
-                        <Text style={[styles.dateText, { color: isDark ? "#bbb" : "#555" }]}>{item.capturedate}</Text>
-                        <Text style={[styles.statusText, { color: "#00adf2" }]}>{item.status || "Pending"}</Text>
+                        <Text style={[styles.idText, { color: textColor }]}>{item.unique}</Text>
+                        <Text style={[styles.dateText, { color: secondaryTextColor }]}>{item.capturedate}</Text>
+                        <Text style={[styles.statusText, { color: statusColor }]}>{status}</Text>
 
                         {imgUrl ? (
+                         
                           <Image
-                            source={{ uri: imgUrl }}
+                            source={{ uri: item.image }} 
                             style={styles.thumb}
                             resizeMode="cover"
                             onError={(e) => console.log("Image load failed:", e.nativeEvent.error)}
                           />
                         ) : (
-                          <View style={styles.noImageBox}>
-                            <FontAwesome6 name="image" size={22} color="#666" />
-                            <Text style={{ fontSize: 9, color: "#666" }}>No Image</Text>
+                          <View style={[styles.noImageBox, { backgroundColor: isDark ? "#333" : "#eee" }]}>
+                            <FontAwesome6 name="image" size={22} color={secondaryTextColor} />
+                            <Text style={{ fontSize: 9, color: secondaryTextColor }}>No Image</Text>
                           </View>
                         )}
                       </View>
@@ -170,7 +186,7 @@ export default function MyQuizScreen() {
         </>
       )}
 
-      {/* FAB — FULLY RESTORED */}
+      {/* FAB */}
       <View style={styles.fabContainer}>
         {[
           { icon: "house", color: "#10b981", screen: "LandingScreen" },
@@ -203,7 +219,7 @@ export default function MyQuizScreen() {
           </Animated.View>
         ))}
 
-        <TouchableOpacity style={styles.fabMain} onPress={toggleFab}>
+        <TouchableOpacity style={[styles.fabMain, { backgroundColor: fabMainColor }]} onPress={toggleFab}>
           <FontAwesome6 name={isFabOpen ? "xmark" : "plus"} size={28} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -212,7 +228,7 @@ export default function MyQuizScreen() {
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalBg}>
           <View style={[styles.modalBox, { backgroundColor: isDark ? "#111" : "#fff" }]}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { borderBottomColor: isDark ? "#444" : "#ddd" }]}>
               <Text style={[styles.modalTitle, { color: isDark ? "#fff" : "#000" }]}>Quiz Details</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <FontAwesome6 name="xmark" size={28} color={isDark ? "#ccc" : "#666"} />
@@ -222,16 +238,16 @@ export default function MyQuizScreen() {
             <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 30 }}>
               {selectedRecord && (
                 <>
-                  {getImageUrl(selectedRecord) ? (
+                  {(selectedRecord) ? (
                     <View style={styles.fullImageContainer}>
                       <Image
-                        source={{ uri: getImageUrl(selectedRecord) }}
-                        style={styles.fullImage}
+                        source={{ uri: (selectedRecord.image) }}
+                        style={[styles.fullImage, { backgroundColor: isDark ? "#000" : "#fff" }]}
                         resizeMode="contain"
                       />
                     </View>
                   ) : (
-                    <View style={styles.noImageFull}>
+                    <View style={[styles.noImageFull, { backgroundColor: isDark ? "#111" : "#f0f0f0" }]}>
                       <FontAwesome6 name="image-slash" size={60} color="#888" />
                       <Text style={{ color: "#888", marginTop: 16, fontSize: 18 }}>No Image Available</Text>
                     </View>
@@ -244,7 +260,7 @@ export default function MyQuizScreen() {
                     </View>
                     <View style={styles.info}>
                       <Text style={[styles.label, { color: isDark ? "#ccc" : "#444" }]}>Date:</Text>
-                      <Text style={styles.value}>{selectedRecord.capturedate}</Text>
+                      <Text style={[styles.value, { color: isDark ? "#fff" : "#000" }]}>{selectedRecord.capturedate}</Text>
                     </View>
                     <View style={styles.info}>
                       <Text style={[styles.label, { color: isDark ? "#ccc" : "#444" }]}>Status:</Text>
@@ -257,7 +273,7 @@ export default function MyQuizScreen() {
                       <Text style={{ color: isDark ? "#9ca3af" : "#444", fontWeight: "bold", marginBottom: 10 }}>
                         Result:
                       </Text>
-                      <View style={[styles.responseTextBox, { backgroundColor: isDark ? "#1f2937" : "#f8fafc" }]}>
+                      <View style={[styles.responseTextBox, { backgroundColor: isDark ? "#1f2937" : "#f8fafc", borderColor: isDark ? "#374151" : "#ddd" }]}>
                         <Text style={{
                           color: isDark ? "#e5e7eb" : "#1f2937",
                           fontSize: 15,
@@ -273,6 +289,8 @@ export default function MyQuizScreen() {
                 </>
               )}
             </ScrollView>
+
+
           </View>
         </View>
       </Modal>
@@ -282,9 +300,9 @@ export default function MyQuizScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 15 },
-  backBtn: { padding: 8 },
-  logoBox: { alignItems: "center" },
+  header: { flexDirection: "row",  },
+  backBtn: { MarginTop:30 },
+  logoBox: {  alignItems: "center", },
   logo: { width: 70, height: 50 },
   logoText: { fontSize: 13, fontWeight: "bold", marginLeft: 8 },
   title: { fontSize: 21, fontWeight: "bold" },
@@ -297,22 +315,23 @@ const styles = StyleSheet.create({
   dateText: { flex: 1.5, fontSize: 12, textAlign: "center" },
   statusText: { flex: 1, fontSize: 13, fontWeight: "bold", textAlign: "center" },
   thumb: { width: 60, height: 60, borderRadius: 12, borderWidth: 1, borderColor: "#ccc" },
-  noImageBox: { width: 60, height: 60, borderRadius: 12, backgroundColor: "#2a2a2a", justifyContent: "center", alignItems: "center" },
+  noImageBox: { width: 60, height: 60, borderRadius: 12, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#ccc" }, 
   noData: { textAlign: "center", marginTop: 50, fontSize: 17 },
   fabContainer: { position: "absolute", bottom: 30, right: 20 },
   fabSmall: { width: 56, height: 56, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 8 },
-  fabMain: { width: 66, height: 66, borderRadius: 33, backgroundColor: "#3b82f6", justifyContent: "center", alignItems: "center", elevation: 10 },
+  fabMain: { width: 66, height: 66, borderRadius: 33, justifyContent: "center", alignItems: "center", elevation: 10 },
   modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" },
   modalBox: { width: "92%", height: "92%", borderRadius: 20, padding: 20 },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#444" },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15, paddingBottom: 12, borderBottomWidth: 1 },
   modalTitle: { fontSize: 22, fontWeight: "bold" },
-  fullImageContainer: { alignItems: "center", backgroundColor: "#000", borderRadius: 16, padding: 8, marginVertical: 10 },
-  fullImage: { width: "100%", height: 420 },
-  noImageFull: { height: 420, justifyContent: "center", alignItems: "center", backgroundColor: "#111", borderRadius: 16 },
+  fullImageContainer: { alignItems: "center", borderRadius: 16, padding: 8, marginVertical: 10 },
+  fullImage: { width: "100%", height: 420, borderRadius:10 },
+  noImageFull: { height: 420, justifyContent: "center", alignItems: "center", borderRadius: 16 }, 
   infoSection: { marginTop: 10, paddingHorizontal: 4 },
   info: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10 },
   label: { fontSize: 16, width: 110, color: "#888" },
   value: { fontSize: 16, fontWeight: "600", flex: 1, textAlign: "right" },
   responseBox: { marginTop: 20 },
-  responseTextBox: { borderRadius: 14, borderWidth: 1, borderColor: "#374151", overflow: "hidden" },
+  responseTextBox: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
+  logo: { width: 200, height: 60, alignSelf: "center", marginTop: 20 },
 });
