@@ -68,7 +68,7 @@ export default function MyQuizScreen() {
           console.log("Status   :", item.status || "Pending");
           console.log("S3 URL   :", item.image || "No image");
           console.log("PROXY URL:", imgUrl || "No image");
-          
+         
         });
       } else {
         setRecords([]);
@@ -113,21 +113,23 @@ export default function MyQuizScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: headerBackground }]}>
       {/* HEADER */}
-   <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop:20, padding:5}}>
-          <FontAwesome6 name="chevron-left" size={24} color={isDark ? "#60a5fa" : "#007AFF"} />
-        </TouchableOpacity>
+      <View style ={{height:100, width:"100%",  flexDirection:'row'}}>
+      <TouchableOpacity style={{height:100, width:30, marginTop:10, alignItems:'center', justifyContent:'center'}} onPress={() => navigation.goBack()}>
+        <FontAwesome6 name="chevron-left" size={24} color={accentColor} />
+      </TouchableOpacity>
 
-        <View style={styles.logoBox}>
-          <Image source={EENADU_LOGO} style={{height:50, width:50}} resizeMode="contain" />
-          <Text style={[styles.logoText, { color: isDark ? "#e5e7eb" : "#111" }]}>Smart Quiz</Text>
-        </View>
-        
-       <View style = {{ flex: 1, alignItems: "center", marginTop:20 }}>
-        <Text style={[styles.title, { color: isDark ? "#60a5fa" : "#007AFF" }]}>My Quizs</Text>
-        </View>
-        <View style={{ width: 60 }} />
+
+      <View style={{ marginTop:3}}>
+      <Image source={EENADU_LOGO} style={{height:70, width:80, }} resizeMode="contain" />
+      <Text style = {{ color: isDark ? "#e5e7eb" : "#111", fontSize: 13, fontWeight: "bold",}}> Smart Quiz</Text>
       </View>
+
+      <View style={{ width:'50%', justifyContent:'center', alignItems:'center',}}>
+          <Text style={{ color: accentColor,fontSize: 21, fontWeight: "bold"  }}>My Quizs</Text>
+        </View>
+
+      </View>
+     
 
       {loading ? (
         <View style={styles.center}>
@@ -300,12 +302,8 @@ export default function MyQuizScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: "row",  },
-  backBtn: { MarginTop:30 },
-  logoBox: {  alignItems: "center", },
-  logo: { width: 70, height: 50 },
-  logoText: { fontSize: 13, fontWeight: "bold", marginLeft: 8 },
-  title: { fontSize: 21, fontWeight: "bold" },
+ 
+ 
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   tableHeader: { flexDirection: "row", padding: 14, marginHorizontal: 12, marginTop: 10, borderRadius: 12 },
   th: { color: "#fff", fontWeight: "bold", textAlign: "center", flex: 1, fontSize: 13 },
