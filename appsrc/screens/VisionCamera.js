@@ -384,10 +384,10 @@ const styles = StyleSheet.create({
   },
   disabled: { backgroundColor: "#666" },
   buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  modal: { flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center" },
+  modal: { flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center", height:'70%' },
   exactPreview: {
-    width: PREVIEW_WIDTH * 1.5,
-    height: PREVIEW_HEIGHT * 1.5,
+    width: PREVIEW_WIDTH * 1.3,
+    height: PREVIEW_HEIGHT * 1.3,
     borderWidth: 3,
     borderColor: "#00FF41",
     borderRadius: 12,

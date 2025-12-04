@@ -161,7 +161,7 @@ export default function MyQuizScreen() {
                       <View style={styles.row}>
                         <Text style={[styles.idText, { color: textColor }]}>{item.unique}</Text>
                         <Text style={[styles.dateText, { color: secondaryTextColor }]}>{item.capturedate}</Text>
-                        <Text style={[styles.statusText, { color: statusColor }]}>{status}</Text>
+                        <Text style={[styles.statusText, { color: statusColor, textTransform:"uppercase" }]}>{status}</Text>
 
                         {imgUrl ? (
                          
@@ -266,7 +266,7 @@ export default function MyQuizScreen() {
                     </View>
                     <View style={styles.info}>
                       <Text style={[styles.label, { color: isDark ? "#ccc" : "#444" }]}>Status:</Text>
-                      <Text style={[styles.value, { color: "#10b981" }]}>{selectedRecord.status || "Pending"}</Text>
+                      <Text style={[styles.value, { color: "#10b981", textTransform:"uppercase" }]}>{selectedRecord.status || "Pending"}</Text>
                     </View>
                   </View>
 
@@ -318,8 +318,8 @@ const styles = StyleSheet.create({
   fabContainer: { position: "absolute", bottom: 30, right: 20 },
   fabSmall: { width: 56, height: 56, borderRadius: 28, justifyContent: "center", alignItems: "center", elevation: 8 },
   fabMain: { width: 66, height: 66, borderRadius: 33, justifyContent: "center", alignItems: "center", elevation: 10 },
-  modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" },
-  modalBox: { width: "92%", height: "92%", borderRadius: 20, padding: 20 },
+  modalBg: { flex: 1, justifyContent: "center", alignItems: "center", elevation:2  },
+  modalBox: { width: "92%", height: "92%", borderRadius: 20, padding: 20, borderWidth:0.5, borderColor:'#888', elevation: 10 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15, paddingBottom: 12, borderBottomWidth: 1 },
   modalTitle: { fontSize: 22, fontWeight: "bold" },
   fullImageContainer: { alignItems: "center", borderRadius: 16, padding: 8, marginVertical: 10 },
