@@ -113,7 +113,7 @@ export default function MyQuizScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: headerBackground }]}>
       {/* HEADER */}
-      <View style ={{height:100, width:"100%",  flexDirection:'row'}}>
+      <View style ={{height:90, width:"100%",  flexDirection:'row'}}>
       <TouchableOpacity style={{height:100, width:30, marginTop:10, alignItems:'center', justifyContent:'center'}} onPress={() => navigation.goBack()}>
         <FontAwesome6 name="chevron-left" size={24} color={accentColor} />
       </TouchableOpacity>

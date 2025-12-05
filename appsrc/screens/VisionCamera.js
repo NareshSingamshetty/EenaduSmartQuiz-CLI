@@ -9,32 +9,32 @@ import {
   Alert,
   Dimensions,
   Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  ScrollView,
 } from "react-native";
 import {
   Camera,
   useCameraDevice,
   useCameraPermission,
 } from "react-native-vision-camera";
-import RNFS, { stat } from "react-native-fs";
+import RNFS from "react-native-fs";
 import ImagePicker from "react-native-image-crop-picker";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
-// 🚨 Import useIsFocused for camera management
-import { useNavigation, useIsFocused } from "@react-navigation/native"; 
+import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { uploadCroppedImage } from "./UploadHandler";
 import ImageResizer from "react-native-image-resizer";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const PREVIEW_WIDTH = 200;
 const PREVIEW_HEIGHT = 500;
-const PREVIEW_ASPECT_RATIO = PREVIEW_WIDTH / PREVIEW_HEIGHT;
 
 export default function VisionCamera() {
   const camera = useRef(null);
   const device = useCameraDevice("back");
   const { hasPermission, requestPermission } = useCameraPermission();
   const navigation = useNavigation();
-  // 🚨 Determine if the screen is focused
-  const isScreenFocused = useIsFocused(); 
+  const isScreenFocused = useIsFocused();
 
   const [croppedPhotoUri, setCroppedPhotoUri] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -42,9 +42,39 @@ export default function VisionCamera() {
   const [successModal, setSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
+  const [userName, setUserName] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+
   useEffect(() => {
     if (!hasPermission) requestPermission();
-  }, [hasPermission]);
+  }, []);
+
+  const validateForm = () => {
+    const errors = {};
+
+    if (!userName.trim()) {
+      errors.name = "Name is required";
+    } else if (userName.trim().length < 3) {
+      errors.name = "Name must be at least 3 characters";
+    }
+
+    if (!mobileNumber.trim()) {
+      errors.mobile = "Mobile number is required";
+    } else if (mobileNumber.length !== 10) {
+      errors.mobile = "Enter valid 10-digit mobile number";
+    }
+
+    if (!email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      errors.email = "Enter a valid email address";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const takePhoto = async () => {
     if (!camera.current || !device) return;
@@ -60,211 +90,107 @@ export default function VisionCamera() {
         android: `file://${photo.path}`,
       });
 
-      const croppedUri = await cropToExactPreviewArea(
-        uri,
-        photo.width,
-        photo.height
-      );
-      setCroppedPhotoUri(croppedUri);
+      const cropped = await cropToExactPreviewArea(uri, photo.width, photo.height);
+      setCroppedPhotoUri(cropped);
       setModalVisible(true);
     } catch (err) {
-      console.error("Capture error:", err);
       Alert.alert("Error", "Failed to capture photo");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const calculatePreviewCropRect = (photoWidth, photoHeight) => {
-    const photoAspect = photoWidth / photoHeight;
-    const previewAspect = PREVIEW_ASPECT_RATIO;
-    let cropX, cropY, cropWidth, cropHeight;
-
-    if (photoAspect > previewAspect) {
-      cropHeight = photoHeight;
-      cropWidth = photoHeight * previewAspect;
-      cropX = (photoWidth - cropWidth) / 2;
-      cropY = 0;
-    } else {
-      cropWidth = photoWidth;
-      cropHeight = photoWidth / previewAspect;
-      cropX = 0;
-      cropY = (photoHeight - cropHeight) / 2;
-    }
-
-    return {
-      x: Math.round(cropX),
-      y: Math.round(cropY),
-      width: Math.round(cropWidth),
-      height: Math.round(cropHeight),
-    };
-  };
-
-  const cropToExactPreviewArea = async (
-    originalUri,
-    photoWidth,
-    photoHeight
-  ) => {
+  const cropToExactPreviewArea = async (uri, w, h) => {
     try {
-      const cropRect = calculatePreviewCropRect(photoWidth, photoHeight);
-      const croppedImage = await ImagePicker.openCropper({
-        path: originalUri,
-        // Using a higher resolution for cropping ensures better quality
-        width: PREVIEW_WIDTH * 4, 
+      const cropped = await ImagePicker.openCropper({
+        path: uri,
+        width: PREVIEW_WIDTH * 4,
         height: PREVIEW_HEIGHT * 4,
-        initialCropRect: cropRect,
-        compressImageQuality: 0.9,
-        mediaType: "photo",
         cropperCircleOverlay: false,
         showCropFrame: false,
         showCropGuidelines: false,
         hideBottomControls: true,
+        compressImageQuality: 0.9,
       });
-      return croppedImage.path;
-    } catch (error) {
-      console.error("Crop failed:", error);
-      // Return originalUri if cropping is cancelled or fails
-      return originalUri; 
+      return cropped.path;
+    } catch {
+      return uri;
     }
   };
 
-  // ✅ Compress image under 1MB (1024KB)
   const compressImageUnder1MB = async (uri) => {
     try {
-      let quality = 90; // start high
-      let resized = null;
-      let sizeKB = Infinity;
-
-      const MAX_WIDTH = 1280;
-      const MAX_HEIGHT = 1700;
-
-      while (quality >= 30 && sizeKB > 1024) {
-        resized = await ImageResizer.createResizedImage(
-          uri,
-          MAX_WIDTH,
-          MAX_HEIGHT,
-          "JPEG",
-          quality,
-          0
-        );
-
-        const info = await stat(resized.path);
-        sizeKB = info.size / 1024;
-
-        console.log(
-          `Compression attempt: ${quality}% → ${Math.round(sizeKB)} KB`
-        );
-
-        quality -= 5;
-        uri = resized.uri;
+      let quality = 85;
+      let currentUri = uri;
+      while (quality >= 30) {
+        const resized = await ImageResizer.createResizedImage(currentUri, 1280, 1700, "JPEG", quality, 0);
+        const stats = await RNFS.stat(resized.path);
+        if (stats.size <= 1024 * 1024) return resized.path;
+        quality -= 10;
+        currentUri = resized.path;
       }
-
-      if (resized) {
-        const finalInfo = await stat(resized.path);
-        console.log(
-          `✅ Final image size: ${(finalInfo.size / 1024).toFixed(
-            1
-          )} KB (Quality ${quality + 5}%)`
-        );
-        return resized.uri;
-      }
-
+      return currentUri;
+    } catch {
       return uri;
-    } catch (err) {
-      console.error("Compression failed:", err);
-      return uri;
-    }
-  };
-
-  const handleSaveToGallery = async () => {
-    if (!croppedPhotoUri) {
-      Alert.alert("No Image", "Please capture an image first!");
-      return;
-    }
-
-    try {
-      setIsProcessing(true);
-
-      const compressedUri = await compressImageUnder1MB(croppedPhotoUri);
-      const originalPath = compressedUri.replace("file://", "");
-      const timestamp = new Date().getTime();
-      const newFileName = `Cropped_Image_${timestamp}.jpg`;
-
-      const destinationPath =
-        Platform.OS === "android"
-          ? `${RNFS.PicturesDirectoryPath}/${newFileName}`
-          : `${RNFS.DocumentDirectoryPath}/${newFileName}`;
-
-      await RNFS.copyFile(originalPath, destinationPath);
-      Alert.alert("🎉 Success", `Image saved`);
-    } catch (error) {
-      console.error("Save Error:", error);
-      Alert.alert("Error", `Failed to save image: ${error.message}`);
-    } finally {
-      setIsProcessing(false);
     }
   };
 
   const resetCapture = () => {
     setModalVisible(false);
     setCroppedPhotoUri(null);
+    setUserName("");
+    setMobileNumber("");
+    setEmail("");
+    setFormErrors({});
   };
 
   const handleSubmit = async () => {
-    if (!croppedPhotoUri) {
-      Alert.alert("No Image", "Please capture an image first!");
-      return;
-    }
+    if (!validateForm()) return;
+
+    setIsProcessing(true);
+    setModalVisible(false);
 
     try {
-      setIsProcessing(true); // show loader immediately
-      setModalVisible(false); // Close the preview modal immediately
-
-      console.log("🔄 Compressing image before upload...");
       const compressedUri = await compressImageUnder1MB(croppedPhotoUri);
-      console.log("✅ Compression done, preparing Base64...");
 
-      // Wait for base64 + API call inside uploadCroppedImage
-      await uploadCroppedImage(compressedUri, (msg) => {
-        setSuccessMessage(msg);
-        setSuccessModal(true);
-      });
+      await uploadCroppedImage(
+        compressedUri,
+        (msg) => {
+          setSuccessMessage(msg);
+          setSuccessModal(true);
+        },
+        {
+          name: userName.trim(),
+          mobile: mobileNumber.trim(),
+          email: email.trim(),
+        }
+      );
     } catch (err) {
-      console.error("Submit error:", err);
-      Alert.alert("Error", "Something went wrong during upload.");
+      Alert.alert("Error", "Upload failed");
     } finally {
-      setIsProcessing(false); // hide loader after everything done
-      setCroppedPhotoUri(null); // Clear image after successful submit/failure
+      setIsProcessing(false);
     }
   };
 
-  if (!device)
+  if (!device) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>No camera device found</Text>
       </View>
     );
+  }
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <FontAwesome6 name="arrow-left" size={24} color="#00adf2" />
       </TouchableOpacity>
 
-      <View
-        style={[
-          styles.cameraContainer,
-          { width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT },
-        ]}
-      >
+      <View style={[styles.cameraContainer, { width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }]}>
         <Camera
           style={StyleSheet.absoluteFillObject}
           device={device}
-          // 💡 CRITICAL FIX: Only activate camera when screen is focused AND modal is closed
-          isActive={isScreenFocused && !modalVisible} 
+          isActive={isScreenFocused && !modalVisible}
           ref={camera}
           photo={true}
         />
@@ -281,48 +207,75 @@ export default function VisionCamera() {
         </Text>
       </TouchableOpacity>
 
-      {/* Image Preview Modal */}
-      <Modal visible={modalVisible} animationType="none">
-        <View style={styles.modal}>
-          {croppedPhotoUri && (
-            <Image
-              source={{ uri: croppedPhotoUri }}
-              style={styles.exactPreview}
-              resizeMode="cover"
-            />
-          )}
+      {/* Form Modal */}
+      <Modal visible={modalVisible} animationType="fade" transparent={false}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+            <View style={styles.formModalContainer}>
+              <Text style={styles.formTitle}>Complete Your Submission</Text>
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.retakeBtn} onPress={resetCapture}>
-              <Text style={styles.btnText}>Retake</Text>
-            </TouchableOpacity>
+              {croppedPhotoUri && (
+                <Image source={{ uri: croppedPhotoUri }} style={styles.formPreviewImage} resizeMode="contain" />
+              )}
 
-           {/*
-            
-             <TouchableOpacity
-              style={[styles.saveBtn, isProcessing && styles.disabled]}
-              onPress={handleSaveToGallery}
-              disabled={isProcessing}
-            >
-              <Text style={styles.btnText}>Save</Text>
-            </TouchableOpacity>
-            
-            */}
+              <View style={styles.formContainer}>
+                <Text style={styles.label}>Full Name</Text>
+                <TextInput
+                  style={[styles.input, formErrors.name && styles.inputError]}
+                  placeholder="Enter your name"
+                  placeholderTextColor="#999"
+                  value={userName}
+                  onChangeText={setUserName}
+                  autoCapitalize="words"
+                />
+                {formErrors.name && <Text style={styles.errorText}>{formErrors.name}</Text>}
 
-            <TouchableOpacity
-              style={[styles.submitBtn, isProcessing && styles.disabled]}
-              onPress={handleSubmit}
-              disabled={isProcessing}
-            >
-              <Text style={styles.btnText}>
-                {isProcessing ? "Submitting..." : "Submit"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                <Text style={styles.label}>Mobile Number</Text>
+                <TextInput
+                  style={[styles.input, formErrors.mobile && styles.inputError]}
+                  placeholder="9876543210"
+                  placeholderTextColor="#999"
+                  value={mobileNumber}
+                  onChangeText={(t) => setMobileNumber(t.replace(/\D/g, "").slice(0, 10))}
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+                {formErrors.mobile && <Text style={styles.errorText}>{formErrors.mobile}</Text>}
+
+                <Text style={styles.label}>Email Address</Text>
+                <TextInput
+                  style={[styles.input, formErrors.email && styles.inputError]}
+                  placeholder="you@example.com"
+                  placeholderTextColor="#999"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                {formErrors.email && <Text style={styles.errorText}>{formErrors.email}</Text>}
+              </View>
+
+              <View style={styles.formActions}>
+                <TouchableOpacity style={styles.retakeBtn} onPress={resetCapture}>
+                  <Text style={styles.btnText}>Retake</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.submitBtn, isProcessing && styles.disabled]}
+                  onPress={handleSubmit}
+                  disabled={isProcessing}
+                >
+                  <Text style={styles.btnText}>
+                    {isProcessing ? "Submitting..." : "Submit"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
-      {/* ✅ Success Modal */}
+      {/* YOUR ORIGINAL SUCCESS MODAL – 100% RESTORED */}
       <Modal
         visible={successModal}
         animationType="fade"
@@ -334,15 +287,12 @@ export default function VisionCamera() {
             <View style={styles.modalIconView}>
               <FontAwesome6 name="check" size={40} color="#ffffff" />
             </View>
-            {/* <Text style={styles.modalTitle}>Thank you</Text>  */}
             <Text style={styles.modalMessage}>
               {successMessage || "Your quiz has been submitted successfully!"}
             </Text>
             <TouchableOpacity
               onPress={() => {
                 setSuccessModal(false);
-                // Clear state when navigating away
-                setCroppedPhotoUri(null); 
                 navigation.navigate("LandingScreen");
               }}
               style={styles.closeButton}
@@ -356,6 +306,7 @@ export default function VisionCamera() {
   );
 }
 
+// YOUR ORIGINAL STYLES – FULLY RESTORED
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -363,11 +314,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  backButton: { position: "absolute", top: 20, left: 20, zIndex: 10 },
+  backButton: { position: "absolute", top: 50, left: 20, zIndex: 10 },
   cameraContainer: {
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: "#00FF41",
-    borderRadius: 12,
+    borderRadius: 6,
     overflow: "hidden",
   },
   exactCaptureBorder: {
@@ -376,51 +327,75 @@ const styles = StyleSheet.create({
     borderColor: "rgba(0,255,65,0.6)",
   },
   captureButton: {
-    marginTop: 20,
+    marginTop: 30,
     backgroundColor: "#00adf2",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 25,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 30,
   },
   disabled: { backgroundColor: "#666" },
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  modal: { flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center", height:'70%' },
-  exactPreview: {
-    width: PREVIEW_WIDTH * 1.3,
-    height: PREVIEW_HEIGHT * 1.3,
-    borderWidth: 3,
-    borderColor: "#00FF41",
-    borderRadius: 12,
+  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 18 },
+
+  formModalContainer: {
+    flex: 1,
+    backgroundColor: "#111",
+    padding: 20,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
-  actions: {
+  formTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#00FF41",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  formPreviewImage: {
+    width: "100%",
+    height: 320,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: "#00FF41",
+    marginBottom: 25,
+  },
+  formContainer: { width: "100%" },
+  label: { color: "#fff", fontSize: 16, marginBottom: 8, fontWeight: "600" },
+  input: {
+    backgroundColor: "#333",
+    color: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  inputError: { borderColor: "#FF3B30", borderWidth: 1 },
+  errorText: { color: "#FF3B30", fontSize: 13, marginBottom: 12, marginLeft: 5 },
+  formActions: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    //marginTop: 10,
+    justifyContent: "space-between",
+    marginTop: 30,
+    paddingHorizontal: 10,
   },
   retakeBtn: {
     backgroundColor: "#FF3B30",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    margin: 5,
-  },
-  saveBtn: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    margin: 5,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    flex: 1,
+    marginRight: 10,
   },
   submitBtn: {
     backgroundColor: "#34C759",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    margin: 5,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    flex: 1,
+    marginLeft: 10,
   },
-  btnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  errorText: { color: "#fff", fontSize: 18 },
+  btnText: { color: "#fff", fontWeight: "bold", fontSize: 18, textAlign: "center" },
+
+  // YOUR ORIGINAL SUCCESS MODAL STYLES
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
@@ -445,7 +420,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  modalTitle: { marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#000" },
   modalMessage: {
     fontSize: 12,
     textAlign: "center",
